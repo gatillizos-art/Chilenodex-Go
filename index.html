@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e1f17">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Explora Chile con tu GPS y registra su flora y fauna nativa.">
+<title>Chilenodex</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="mapa" aria-label="Mapa del juego"></canvas>
+
+  <header id="hud">
+    <div class="hud-row">
+      <div class="nivel" aria-label="Nivel"><small>NIV</small><b id="nivelNum">1</b></div>
+      <div class="xp-wrap">
+        <div class="xp-bar"><i id="xpFill"></i></div>
+        <span id="xpTxt">0 / 70 XP</span>
+      </div>
+      <div class="chip chip-pinon" title="Piñones (cebo)">🌰 <b id="pinonesN">5</b></div>
+    </div>
+    <div class="hud-chips">
+      <span class="chip" id="chipZona">—</span>
+      <span class="chip" id="chipGps">GPS…</span>
+      <span class="chip" id="chipNoche" hidden>🌙 Noche</span>
+    </div>
+  </header>
+
+  <div id="banner" hidden></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <div class="mapa-btns">
+    <button id="btnCentrar" class="fab" aria-label="Centrar en mí">📍</button>
+    <button id="btnZoomMas" class="fab" aria-label="Acercar">＋</button>
+    <button id="btnZoomMenos" class="fab" aria-label="Alejar">－</button>
+  </div>
+
+  <div id="dpad" hidden>
+    <button data-d="n" aria-label="Mover al norte">▲</button>
+    <button data-d="o" aria-label="Mover al oeste">◀</button>
+    <button data-d="e" aria-label="Mover al este">▶</button>
+    <button data-d="s" aria-label="Mover al sur">▼</button>
+  </div>
+
+  <nav id="nav">
+    <button data-p="mapa" class="on"><span>🗺️</span>Mapa</button>
+    <button data-p="dex"><span>📖</span>Chilenodex</button>
+    <button data-p="mochila"><span>🎒</span>Mochila</button>
+    <button data-p="ajustes"><span>⚙️</span>Ajustes</button>
+  </nav>
+
+  <!-- Chilenodex -->
+  <section id="p-dex" class="panel" hidden>
+    <div class="panel-head"><h2>Chilenodex</h2><span id="dexProgreso" class="muted"></span></div>
+    <div class="tabs" id="dexTabs">
+      <button data-f="todo" class="on">Todo</button>
+      <button data-f="fauna">🦊 Fauna</button>
+      <button data-f="flora">🌿 Flora</button>
+    </div>
+    <div id="dexGrid" class="dex-grid"></div>
+    <p class="nota">Los estados de conservación son referenciales (criterio UICN). Para información oficial, consulta el Reglamento de Clasificación de Especies del Ministerio del Medio Ambiente.</p>
+  </section>
+
+  <!-- Mochila -->
+  <section id="p-mochila" class="panel" hidden>
+    <div class="panel-head"><h2>Mochila</h2></div>
+    <div class="stats" id="statsGrid"></div>
+    <div class="bloque">
+      <h3>🌰 Piñones</h3>
+      <p class="muted">Úsalos en un encuentro como cebo: la foto es más fácil y el animal se asusta menos. Los consigues en refugios y al subir de nivel.</p>
+    </div>
+    <div class="bloque">
+      <h3>Progreso por zona</h3>
+      <div id="zonaProgreso"></div>
+    </div>
+  </section>
+
+  <!-- Ajustes -->
+  <section id="p-ajustes" class="panel" hidden>
+    <div class="panel-head"><h2>Ajustes</h2></div>
+    <label class="fila"><span>🔊 Sonido</span><input type="checkbox" id="chkSonido"></label>
+    <label class="fila"><span>📳 Vibración</span><input type="checkbox" id="chkVibrar"></label>
+    <label class="fila"><span>🧪 Modo simulación (sin GPS)</span><input type="checkbox" id="chkSim"></label>
+    <div class="fila col">
+      <span>🧭 Teletransportar (simulación)</span>
+      <div class="fila-in">
+        <select id="selTele"></select>
+        <button id="btnTele" class="btn-sec">Ir</button>
+      </div>
+    </div>
+    <div class="fila col">
+      <span>🗺️ Zona de fauna y flora</span>
+      <select id="selZona"></select>
+    </div>
+    <div class="fila col">
+      <span>🌲 Hábitat</span>
+      <select id="selHabitat"></select>
+    </div>
+    <div class="bloque">
+      <button id="btnReset" class="btn-peligro">Borrar mi progreso</button>
+    </div>
+    <p class="nota">
+      Mapa © colaboradores de OpenStreetMap. Hábitats cercanos estimados con datos de OpenStreetMap (Overpass API).
+      Chilenodex es un juego educativo: en la vida real observa a la fauna a distancia, no recolectes plantas
+      y respeta las áreas protegidas. Mira siempre a tu alrededor y no juegues mientras conduces.
+    </p>
+  </section>
+
+  <!-- Modal genérico -->
+  <div id="modal" class="overlay modal" hidden><div class="modal-card" id="modalCard"></div></div>
+
+  <!-- Encuentro -->
+  <div id="encuentro" class="overlay" hidden>
+    <div class="enc-top">
+      <button id="encSalir" class="btn-ghost" aria-label="Salir del encuentro">✕</button>
+      <div class="enc-title"><b id="encNombre"></b><span id="encSci"></span></div>
+      <span id="encRareza" class="chip"></span>
+    </div>
+    <div class="enc-stage">
+      <canvas id="encCanvas"></canvas>
+      <div id="encMsg" class="enc-msg"></div>
+      <div class="enc-info"><span id="encIntentos"></span><span id="encHab"></span></div>
+    </div>
+    <div class="enc-actions">
+      <button id="btnPinon" class="btn-sec">🌰 Piñón <small id="nPinon"></small></button>
+      <button id="btnDisparo" class="btn-main">📸 Fotografiar</button>
+    </div>
+    <div id="encResultado" class="enc-result" hidden></div>
+  </div>
+
+  <!-- Inicio -->
+  <div id="splash" class="overlay splash">
+    <div class="splash-card">
+      <img src="icon-192.png" alt="" width="96" height="96">
+      <h1>Chilenodex</h1>
+      <p class="sub">Explora Chile, fotografía su fauna y registra su flora nativa.</p>
+      <ul class="how">
+        <li>🚶 Camina: aparecen especies según tu zona, hábitat y la hora.</li>
+        <li>📸 Acércate a una (40 m) y toca para avistarla. Toca la foto cuando el anillo calce.</li>
+        <li>⛺ Visita refugios para conseguir piñones y datos curiosos.</li>
+      </ul>
+      <button id="btnJugar" class="btn-main grande">📍 Jugar con GPS</button>
+      <button id="btnJugarSim" class="btn-sec grande">🧪 Probar sin GPS</button>
+      <p class="nota">Este es un juego de observación: nunca molestes a la fauna ni arranques plantas. Mira a tu alrededor y no juegues mientras conduces.</p>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="map.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
